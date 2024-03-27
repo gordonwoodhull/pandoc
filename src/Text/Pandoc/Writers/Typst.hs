@@ -37,7 +37,6 @@ import Text.Collate.Lang (Lang(..), parseLang)
 import Text.Printf (printf)
 import Data.Char (isAlphaNum)
 import Text.Pandoc.CSS (pickStylesToKVs)
-import Text.Pandoc.XML.Light (Attr(attrKey))
 
 -- | Convert Pandoc to Typst.
 writeTypst :: PandocMonad m => WriterOptions -> Pandoc -> m Text
@@ -191,11 +190,11 @@ blockToTypst block =
       let attr_kvs (_, _, keyvals) = keyvals
       let fromCell (Cell attr alignment rowspan colspan bs) = do
             let mstyle = lookup "style" $ attr_kvs attr
-            -- let mcssAttribs = 
+            -- let mcssAttribs =
             --       (case mstyle of
             --         Nothing -> Nothing
             --         Just style -> Just $ cssAttributes style)
-            let backgroundProps = 
+            let backgroundProps =
                   (case mstyle of
                     Nothing -> []
                     Just style -> pickStylesToKVs ["background"] style)
@@ -222,19 +221,12 @@ blockToTypst block =
                   --   Just color -> [ "fill: " <> color ]
                   --   )
                   -- works but not with #6ef color codes
-                  -- (case backgroundProps of 
+                  -- (case backgroundProps of
                   --   [(_, background)] -> [ "fill: " <> background ]
                   --   _ -> [])
-                  (case backgroundProps of 
-                    [(_, background)] -> [ "fill: " <> (toTypstColor background) ]
+                  (case backgroundProps of
+                    [(_, background)] -> [ "fill: " <> toTypstColor background ]
                     _ -> [])
-                  -- (case backgroundProps of 
-                  --   [(_, background)] -> 
-                  --     (case background of
-                  --       ('#' : _) -> []
-                  --       _ -> [ "fill: " <> background ]
-                  --     _ -> [])
-                  --   [] -> [])
             cellContents <- blocksToTypst bs
             pure $ if null cellattrs
                       then brackets cellContents
