@@ -36,6 +36,8 @@ import Text.Pandoc.Extensions (Extension(..))
 import Text.Collate.Lang (Lang(..), parseLang)
 import Text.Printf (printf)
 import Data.Char (isAlphaNum)
+import Text.Pandoc.CSS (pickStylesToKVs)
+import Text.Pandoc.XML.Light (Attr(attrKey))
 
 -- | Convert Pandoc to Typst.
 writeTypst :: PandocMonad m => WriterOptions -> Pandoc -> m Text
@@ -185,7 +187,23 @@ blockToTypst block =
           formatalign AlignCenter = "center,"
           formatalign AlignDefault = "auto,"
       let alignarray = parens $ mconcat $ map formatalign aligns
-      let fromCell (Cell _attr alignment rowspan colspan bs) = do
+
+      let attr_kvs (_, _, keyvals) = keyvals
+      let fromCell (Cell attr alignment rowspan colspan bs) = do
+            let mstyle = lookup "style" $ attr_kvs attr
+            -- let mcssAttribs = 
+            --       (case mstyle of
+            --         Nothing -> Nothing
+            --         Just style -> Just $ cssAttributes style)
+            let backgroundProps = 
+                  (case mstyle of
+                    Nothing -> []
+                    Just style -> pickStylesToKVs ["background"] style)
+            let toTypstColor color =
+                  (case T.unpack color of
+                    ('#' : _) -> T.pack "rgb(\"" <> color <> "\")"
+                    _ -> color)
+
             let cellattrs =
                   (case alignment of
                      AlignDefault -> []
@@ -197,7 +215,26 @@ blockToTypst block =
                      RowSpan n -> [ "rowspan: " <> tshow n ]) ++
                   (case colspan of
                      ColSpan 1 -> []
-                     ColSpan n -> [ "colspan: " <> tshow n ])
+                     ColSpan n -> [ "colspan: " <> tshow n ]) ++
+                  -- works but incorrect: attributes
+                  -- (case lookup "background" $ attr_kvs attr of
+                  --   Nothing -> []
+                  --   Just color -> [ "fill: " <> color ]
+                  --   )
+                  -- works but not with #6ef color codes
+                  -- (case backgroundProps of 
+                  --   [(_, background)] -> [ "fill: " <> background ]
+                  --   _ -> [])
+                  (case backgroundProps of 
+                    [(_, background)] -> [ "fill: " <> (toTypstColor background) ]
+                    _ -> [])
+                  -- (case backgroundProps of 
+                  --   [(_, background)] -> 
+                  --     (case background of
+                  --       ('#' : _) -> []
+                  --       _ -> [ "fill: " <> background ]
+                  --     _ -> [])
+                  --   [] -> [])
             cellContents <- blocksToTypst bs
             pure $ if null cellattrs
                       then brackets cellContents
