@@ -89,14 +89,14 @@ pandocToTypst options (Pandoc meta blocks) = do
        Just tpl -> renderTemplate tpl context
 
 pickTypstAttrs :: [(Text, Text)] -> [(Text, Text)]
-pickTypstAttrs = filter (T.isPrefixOf "typst:" . fst)
+pickTypstAttrs = filter (T.isPrefixOf "typst:element:" . fst)
 
 pickTypstTextAttrs :: [(Text, Text)] -> [(Text, Text)]
-pickTypstTextAttrs = filter (T.isPrefixOf "typsttext:" . fst)
+pickTypstTextAttrs = filter (T.isPrefixOf "typst:text:" . fst)
 
 formatAttrs :: [(Text, Text)] -> [Text]
 formatAttrs =
-  map (\(k,v) -> let prop = T.splitOn (T.pack ":") k !! 1 in
+  map (\(k,v) -> let prop = T.splitOn (T.pack ":") k !! 2 in
         prop <> ": " <> v)
 
 
