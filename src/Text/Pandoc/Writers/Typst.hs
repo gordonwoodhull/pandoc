@@ -93,7 +93,7 @@ pickTypstAttrs = filter (T.isPrefixOf "typst:" . fst)
 
 typstAttrs :: [(Text, Text)] -> [Text]
 typstAttrs kvs =
-  map (\(k,v) -> let [_,prop] = T.splitOn (T.pack ":") k in
+  map (\(k,v) -> let prop = T.splitOn (T.pack ":") k !! 1 in
         prop <> ": " <> v) $ pickTypstAttrs kvs
 
 
@@ -274,10 +274,10 @@ blockToTypst block =
       blocksToTypst (Header lev (ident,cls,kvs) ils:rest)
     Div (ident,_,kvs) blocks -> do
       let lab = toLabel FreestandingLabel ident
-      contents <- blocksToTypst blocks
       let props = case typstAttrs kvs of
                     [] -> ""
                     tkvs -> parens $ literal (T.intercalate ", " tkvs)
+      contents <- blocksToTypst blocks
       return $ "#block" <> props <> "[" $$ contents $$ ("]" <+> lab)
 
 defListItemToTypst :: PandocMonad m => ([Inline], [[Block]]) -> TW m (Doc Text)
@@ -339,10 +339,11 @@ inlineToTypst inline =
     SmallCaps inlines -> textstyle "#smallcaps" inlines
     Span (ident,_,kvs) inlines -> do
       let lab = toLabel FreestandingLabel ident
-      contents <- inlinesToTypst inlines
       case typstAttrs kvs of
         [] -> (<> lab) <$> inlinesToTypst inlines
-        tkvs -> return $ "#text" <> parens (literal (T.intercalate ", " tkvs)) <> "[" <> contents <> "]" <> lab
+        tkvs -> do 
+          contents <- inlinesToTypst inlines
+          return $ "#text" <> parens (literal (T.intercalate ", " tkvs)) <> "[" <> contents <> "]" <> lab
     Quoted quoteType inlines -> do
       let q = case quoteType of
                    DoubleQuote -> literal "\""
