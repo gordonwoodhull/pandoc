@@ -36,7 +36,6 @@ import Text.Pandoc.Extensions (Extension(..))
 import Text.Collate.Lang (Lang(..), parseLang)
 import Text.Printf (printf)
 import Data.Char (isAlphaNum)
-import Text.Pandoc.CSS (pickStylesToKVs)
 
 -- | Convert Pandoc to Typst.
 writeTypst :: PandocMonad m => WriterOptions -> Pandoc -> m Text
@@ -88,6 +87,15 @@ pandocToTypst options (Pandoc meta blocks) = do
     case writerTemplate options of
        Nothing  -> main
        Just tpl -> renderTemplate tpl context
+
+pickTypstAttrs :: [(Text, Text)] -> [(Text, Text)]
+pickTypstAttrs = filter (T.isPrefixOf "typst:" . fst)
+
+typstAttrs :: [(Text, Text)] -> [Text]
+typstAttrs kvs =
+  map (\(k,v) -> let [_,prop] = T.splitOn (T.pack ":") k in
+        prop <> ": " <> v) $ pickTypstAttrs kvs
+
 
 blocksToTypst :: PandocMonad m => [Block] -> TW m (Doc Text)
 blocksToTypst blocks = vcat <$> mapM blockToTypst blocks
@@ -187,22 +195,7 @@ blockToTypst block =
           formatalign AlignDefault = "auto,"
       let alignarray = parens $ mconcat $ map formatalign aligns
 
-      let attr_kvs (_, _, keyvals) = keyvals
-      let fromCell (Cell attr alignment rowspan colspan bs) = do
-            let mstyle = lookup "style" $ attr_kvs attr
-            -- let mcssAttribs =
-            --       (case mstyle of
-            --         Nothing -> Nothing
-            --         Just style -> Just $ cssAttributes style)
-            let backgroundProps =
-                  (case mstyle of
-                    Nothing -> []
-                    Just style -> pickStylesToKVs ["background"] style)
-            let toTypstColor color =
-                  (case T.unpack color of
-                    ('#' : _) -> T.pack "rgb(\"" <> color <> "\")"
-                    _ -> color)
-
+      let fromCell (Cell (_,_,kvs) alignment rowspan colspan bs) = do
             let cellattrs =
                   (case alignment of
                      AlignDefault -> []
@@ -215,18 +208,7 @@ blockToTypst block =
                   (case colspan of
                      ColSpan 1 -> []
                      ColSpan n -> [ "colspan: " <> tshow n ]) ++
-                  -- works but incorrect: attributes
-                  -- (case lookup "background" $ attr_kvs attr of
-                  --   Nothing -> []
-                  --   Just color -> [ "fill: " <> color ]
-                  --   )
-                  -- works but not with #6ef color codes
-                  -- (case backgroundProps of
-                  --   [(_, background)] -> [ "fill: " <> background ]
-                  --   _ -> [])
-                  (case backgroundProps of
-                    [(_, background)] -> [ "fill: " <> toTypstColor background ]
-                    _ -> [])
+                  typstAttrs kvs
             cellContents <- blocksToTypst bs
             pure $ if null cellattrs
                       then brackets cellContents
@@ -290,10 +272,13 @@ blockToTypst block =
                           $$ ")" $$ lab $$ blankline
     Div (ident,_,_) (Header lev ("",cls,kvs) ils:rest) ->
       blocksToTypst (Header lev (ident,cls,kvs) ils:rest)
-    Div (ident,_,_) blocks -> do
+    Div (ident,_,kvs) blocks -> do
       let lab = toLabel FreestandingLabel ident
       contents <- blocksToTypst blocks
-      return $ "#block[" $$ contents $$ ("]" <+> lab)
+      let props = case typstAttrs kvs of
+                    [] -> ""
+                    tkvs -> parens $ literal (T.intercalate ", " tkvs)
+      return $ "#block" <> props <> "[" $$ contents $$ ("]" <+> lab)
 
 defListItemToTypst :: PandocMonad m => ([Inline], [[Block]]) -> TW m (Doc Text)
 defListItemToTypst (term, defns) = do
@@ -352,9 +337,12 @@ inlineToTypst inline =
     Superscript inlines -> textstyle "#super" inlines
     Subscript inlines -> textstyle "#sub" inlines
     SmallCaps inlines -> textstyle "#smallcaps" inlines
-    Span (ident,_,_) inlines -> do
+    Span (ident,_,kvs) inlines -> do
       let lab = toLabel FreestandingLabel ident
-      (<> lab) <$> inlinesToTypst inlines
+      contents <- inlinesToTypst inlines
+      case typstAttrs kvs of
+        [] -> (<> lab) <$> inlinesToTypst inlines
+        tkvs -> return $ "#text" <> parens (literal (T.intercalate ", " tkvs)) <> "[" <> contents <> "]" <> lab
     Quoted quoteType inlines -> do
       let q = case quoteType of
                    DoubleQuote -> literal "\""
