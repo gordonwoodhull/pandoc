@@ -91,10 +91,13 @@ pandocToTypst options (Pandoc meta blocks) = do
 pickTypstAttrs :: [(Text, Text)] -> [(Text, Text)]
 pickTypstAttrs = filter (T.isPrefixOf "typst:" . fst)
 
-typstAttrs :: [(Text, Text)] -> [Text]
-typstAttrs kvs =
+pickTypstTextAttrs :: [(Text, Text)] -> [(Text, Text)]
+pickTypstTextAttrs = filter (T.isPrefixOf "typsttext:" . fst)
+
+formatAttrs :: [(Text, Text)] -> [Text]
+formatAttrs =
   map (\(k,v) -> let prop = T.splitOn (T.pack ":") k !! 1 in
-        prop <> ": " <> v) $ pickTypstAttrs kvs
+        prop <> ": " <> v)
 
 
 blocksToTypst :: PandocMonad m => [Block] -> TW m (Doc Text)
@@ -208,7 +211,7 @@ blockToTypst block =
                   (case colspan of
                      ColSpan 1 -> []
                      ColSpan n -> [ "colspan: " <> tshow n ]) ++
-                  typstAttrs kvs
+                  formatAttrs (pickTypstAttrs kvs)
             cellContents <- blocksToTypst bs
             pure $ if null cellattrs
                       then brackets cellContents
@@ -274,7 +277,7 @@ blockToTypst block =
       blocksToTypst (Header lev (ident,cls,kvs) ils:rest)
     Div (ident,_,kvs) blocks -> do
       let lab = toLabel FreestandingLabel ident
-      let props = case typstAttrs kvs of
+      let props = case formatAttrs $ pickTypstAttrs kvs of
                     [] -> ""
                     tkvs -> parens $ literal (T.intercalate ", " tkvs)
       contents <- blocksToTypst blocks
@@ -339,7 +342,7 @@ inlineToTypst inline =
     SmallCaps inlines -> textstyle "#smallcaps" inlines
     Span (ident,_,kvs) inlines -> do
       let lab = toLabel FreestandingLabel ident
-      case typstAttrs kvs of
+      case formatAttrs $ pickTypstTextAttrs kvs of
         [] -> (<> lab) <$> inlinesToTypst inlines
         tkvs -> do 
           contents <- inlinesToTypst inlines
