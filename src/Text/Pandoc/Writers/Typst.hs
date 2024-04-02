@@ -175,7 +175,7 @@ blockToTypst block =
                    else vsep items') $$ blankline
     DefinitionList items ->
       ($$ blankline) . vsep <$> mapM defListItemToTypst items
-    Table (ident,_,_) (Caption _ caption) colspecs thead tbodies tfoot -> do
+    Table (ident,_,tabkvs) (Caption _ caption) colspecs thead tbodies tfoot -> do
       let lab = toLabel FreestandingLabel ident
       capt' <- if null caption
                   then return mempty
@@ -237,6 +237,10 @@ blockToTypst block =
             hrows <- mapM fromRow headRows
             brows <- mapM fromRow bodyRows
             pure $ vcat (hrows ++ ["table.hline()," | not (null hrows)] ++ brows)
+      let (textstart, textend) =
+            (case formatAttrs $ pickTypstTextAttrs tabkvs of
+              [] -> ("", "")
+              tkvs -> ("#text" <> parens (literal (T.intercalate ", " tkvs)) <> "[", "]"))
       header <- fromHead thead
       footer <- fromFoot tfoot
       body <- vcat <$> mapM fromTableBody tbodies
@@ -244,7 +248,7 @@ blockToTypst block =
         "#figure("
         $$
         nest 2
-         ("align(center)[#table("
+         ("align(center)[" <> textstart <> "#table("
           $$ nest 2
              (  "columns: " <> columns <> ","
              $$ "align: " <> alignarray <> ","
@@ -252,7 +256,7 @@ blockToTypst block =
              $$ body
              $$ footer
              )
-          $$ ")]"
+          $$ ")]" <> textend
           $$ capt'
           $$ ", kind: table"
           $$ ")")
