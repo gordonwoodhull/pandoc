@@ -20,7 +20,7 @@ import Text.Pandoc.Definition
 import Text.Pandoc.Class ( PandocMonad)
 import Text.Pandoc.Options ( WriterOptions(..), WrapOption(..), isEnabled )
 import Data.Text (Text)
-import Data.List (intercalate, intersperse)
+import Data.List (intercalate, intersperse, partition)
 import Network.URI (unEscapeString)
 import qualified Data.Text as T
 import Control.Monad.State ( StateT, evalStateT, gets, modify )
@@ -88,15 +88,13 @@ pandocToTypst options (Pandoc meta blocks) = do
        Nothing  -> main
        Just tpl -> renderTemplate tpl context
 
-pickTypstAttrs :: [(Text, Text)] -> [(Text, Text)]
-pickTypstAttrs = filter (T.isPrefixOf "typst:element:" . fst)
-
-pickTypstTextAttrs :: [(Text, Text)] -> [(Text, Text)]
-pickTypstTextAttrs = filter (T.isPrefixOf "typst:text:" . fst)
+pickTypstAttrs :: [(Text, Text)] -> ([(Text, Text)],[(Text, Text)])
+pickTypstAttrs = 
+  partition (not . T.isPrefixOf "typst:text:" . fst) . filter (T.isPrefixOf "typst:" . fst)
 
 formatAttrs :: [(Text, Text)] -> [Text]
 formatAttrs =
-  map (\(k,v) -> let prop = T.splitOn (T.pack ":") k !! 2 in
+  map (\(k,v) -> let prop = last $ T.splitOn (T.pack ":") k in
         prop <> ": " <> v)
 
 
@@ -199,6 +197,7 @@ blockToTypst block =
       let alignarray = parens $ mconcat $ map formatalign aligns
 
       let fromCell (Cell (_,_,kvs) alignment rowspan colspan bs) = do
+            let (typstAttrs, _) = pickTypstAttrs kvs
             let cellattrs =
                   (case alignment of
                      AlignDefault -> []
@@ -211,7 +210,7 @@ blockToTypst block =
                   (case colspan of
                      ColSpan 1 -> []
                      ColSpan n -> [ "colspan: " <> tshow n ]) ++
-                  formatAttrs (pickTypstAttrs kvs)
+                  formatAttrs typstAttrs
             cellContents <- blocksToTypst bs
             pure $ if null cellattrs
                       then brackets cellContents
@@ -237,10 +236,11 @@ blockToTypst block =
             hrows <- mapM fromRow headRows
             brows <- mapM fromRow bodyRows
             pure $ vcat (hrows ++ ["table.hline()," | not (null hrows)] ++ brows)
+      let (_, typstTextAttrs) = pickTypstAttrs tabkvs
       let (textstart, textend) =
-            (case formatAttrs $ pickTypstTextAttrs tabkvs of
+            (case typstTextAttrs of
               [] -> ("", "")
-              tkvs -> ("#text" <> parens (literal (T.intercalate ", " tkvs)) <> "[", "]"))
+              _ -> ("#text" <> parens (literal (T.intercalate ", " $ formatAttrs typstTextAttrs)) <> "[", "]"))
       header <- fromHead thead
       footer <- fromFoot tfoot
       body <- vcat <$> mapM fromTableBody tbodies
@@ -281,9 +281,10 @@ blockToTypst block =
       blocksToTypst (Header lev (ident,cls,kvs) ils:rest)
     Div (ident,_,kvs) blocks -> do
       let lab = toLabel FreestandingLabel ident
-      let props = case formatAttrs $ pickTypstAttrs kvs of
+      let (typstAttrs,_) = pickTypstAttrs kvs
+      let props = case typstAttrs of
                     [] -> ""
-                    tkvs -> parens $ literal (T.intercalate ", " tkvs)
+                    _ -> parens $ literal (T.intercalate ", " $ formatAttrs typstAttrs)
       contents <- blocksToTypst blocks
       return $ "#block" <> props <> "[" $$ contents $$ ("]" <+> lab)
 
@@ -346,11 +347,12 @@ inlineToTypst inline =
     SmallCaps inlines -> textstyle "#smallcaps" inlines
     Span (ident,_,kvs) inlines -> do
       let lab = toLabel FreestandingLabel ident
-      case formatAttrs $ pickTypstTextAttrs kvs of
+      let (_, typstTextAttrs) = pickTypstAttrs kvs
+      case typstTextAttrs of
         [] -> (<> lab) <$> inlinesToTypst inlines
-        tkvs -> do 
+        _ -> do
           contents <- inlinesToTypst inlines
-          return $ "#text" <> parens (literal (T.intercalate ", " tkvs)) <> "[" <> contents <> "]" <> lab
+          return $ "#text" <> parens (literal (T.intercalate ", " $ formatAttrs typstTextAttrs)) <> "[" <> contents <> "]" <> lab
     Quoted quoteType inlines -> do
       let q = case quoteType of
                    DoubleQuote -> literal "\""
