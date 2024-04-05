@@ -89,14 +89,25 @@ pandocToTypst options (Pandoc meta blocks) = do
        Just tpl -> renderTemplate tpl context
 
 pickTypstAttrs :: [(Text, Text)] -> ([(Text, Text)],[(Text, Text)])
-pickTypstAttrs = 
+pickTypstAttrs =
   partition (not . T.isPrefixOf "typst:text:" . fst) . filter (T.isPrefixOf "typst:" . fst)
 
-formatAttrs :: [(Text, Text)] -> [Text]
-formatAttrs =
+formatTypstProps :: [(Text, Text)] -> [Text]
+formatTypstProps =
   map (\(k,v) -> let prop = last $ T.splitOn (T.pack ":") k in
         prop <> ": " <> v)
 
+toTypstText :: [(Text, Text)] -> Doc Text -> Doc Text
+toTypstText typstTextAttrs content =
+  case typstTextAttrs of
+    [] -> content
+    _ -> "#text" <> parens (literal (T.intercalate ", " $ formatTypstProps typstTextAttrs)) <> "[" <> content <> "]"
+
+toTypstProps :: [(Text, Text)] -> Doc Text
+toTypstProps typstAttrs =
+  case typstAttrs of
+    [] -> ""
+    _ -> parens $ literal (T.intercalate ", " $ formatTypstProps typstAttrs)
 
 blocksToTypst :: PandocMonad m => [Block] -> TW m (Doc Text)
 blocksToTypst blocks = vcat <$> mapM blockToTypst blocks
@@ -210,7 +221,7 @@ blockToTypst block =
                   (case colspan of
                      ColSpan 1 -> []
                      ColSpan n -> [ "colspan: " <> tshow n ]) ++
-                  formatAttrs typstAttrs
+                  formatTypstProps typstAttrs
             cellContents <- blocksToTypst bs
             pure $ if null cellattrs
                       then brackets cellContents
@@ -237,10 +248,6 @@ blockToTypst block =
             brows <- mapM fromRow bodyRows
             pure $ vcat (hrows ++ ["table.hline()," | not (null hrows)] ++ brows)
       let (_, typstTextAttrs) = pickTypstAttrs tabkvs
-      let (textstart, textend) =
-            (case typstTextAttrs of
-              [] -> ("", "")
-              _ -> ("#text" <> parens (literal (T.intercalate ", " $ formatAttrs typstTextAttrs)) <> "[", "]"))
       header <- fromHead thead
       footer <- fromFoot tfoot
       body <- vcat <$> mapM fromTableBody tbodies
@@ -248,7 +255,7 @@ blockToTypst block =
         "#figure("
         $$
         nest 2
-         ("align(center)[" <> textstart <> "#table("
+         ("align(center)[" <> toTypstText typstTextAttrs ("#table("
           $$ nest 2
              (  "columns: " <> columns <> ","
              $$ "align: " <> alignarray <> ","
@@ -256,7 +263,7 @@ blockToTypst block =
              $$ body
              $$ footer
              )
-          $$ ")]" <> textend
+          $$ ")]")
           $$ capt'
           $$ ", kind: table"
           $$ ")")
@@ -282,11 +289,8 @@ blockToTypst block =
     Div (ident,_,kvs) blocks -> do
       let lab = toLabel FreestandingLabel ident
       let (typstAttrs,_) = pickTypstAttrs kvs
-      let props = case typstAttrs of
-                    [] -> ""
-                    _ -> parens $ literal (T.intercalate ", " $ formatAttrs typstAttrs)
       contents <- blocksToTypst blocks
-      return $ "#block" <> props <> "[" $$ contents $$ ("]" <+> lab)
+      return $ "#block" <> toTypstProps typstAttrs <> "[" $$ contents $$ ("]" <+> lab)
 
 defListItemToTypst :: PandocMonad m => ([Inline], [[Block]]) -> TW m (Doc Text)
 defListItemToTypst (term, defns) = do
@@ -352,7 +356,7 @@ inlineToTypst inline =
         [] -> (<> lab) <$> inlinesToTypst inlines
         _ -> do
           contents <- inlinesToTypst inlines
-          return $ "#text" <> parens (literal (T.intercalate ", " $ formatAttrs typstTextAttrs)) <> "[" <> contents <> "]" <> lab
+          return $ toTypstText typstTextAttrs contents <> lab
     Quoted quoteType inlines -> do
       let q = case quoteType of
                    DoubleQuote -> literal "\""
