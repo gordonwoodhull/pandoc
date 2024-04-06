@@ -96,17 +96,22 @@ formatTypstProps :: [(Text, Text)] -> [Text]
 formatTypstProps =
   map (\(k,v) -> last (T.splitOn (T.pack ":") k) <> ": " <> v)
 
-toTypstText :: [(Text, Text)] -> Doc Text -> Doc Text
-toTypstText typstTextAttrs content =
-  case typstTextAttrs of
-    [] -> content
-    _ -> "#text" <> parens (literal (T.intercalate ", " $ formatTypstProps typstTextAttrs)) <> "[" <> content <> "]"
-
 toTypstProps :: [(Text, Text)] -> Doc Text
 toTypstProps typstAttrs =
   case typstAttrs of
     [] -> ""
     _ -> parens $ literal (T.intercalate ", " $ formatTypstProps typstAttrs)
+
+toTypstTextElement :: [(Text, Text)] -> Doc Text -> Doc Text
+toTypstTextElement typstTextAttrs content =
+  case typstTextAttrs of
+    [] -> content
+    _ -> "#text" <> toTypstProps typstTextAttrs <> brackets content
+
+toTypstSetText typstTextAttrs =
+  case typstTextAttrs of
+    [] -> ""
+    _ -> "#set text" <> toTypstProps typstTextAttrs <> "; " -- newline?
 
 blocksToTypst :: PandocMonad m => [Block] -> TW m (Doc Text)
 blocksToTypst blocks = vcat <$> mapM blockToTypst blocks
@@ -207,7 +212,7 @@ blockToTypst block =
       let alignarray = parens $ mconcat $ map formatalign aligns
 
       let fromCell (Cell (_,_,kvs) alignment rowspan colspan bs) = do
-            let (typstAttrs, _) = pickTypstAttrs kvs
+            let (typstAttrs, typstTextAttrs) = pickTypstAttrs kvs
             let cellattrs =
                   (case alignment of
                      AlignDefault -> []
@@ -227,7 +232,7 @@ blockToTypst block =
                       else "table.cell" <>
                             parens
                              (literal (T.intercalate ", " cellattrs)) <>
-                            brackets cellContents
+                            brackets (toTypstSetText typstTextAttrs <> cellContents)
       let fromRow (Row _ cs) =
             (<> ",") . commaSep <$> mapM fromCell cs
       let fromHead (TableHead _attr headRows) =
@@ -254,7 +259,7 @@ blockToTypst block =
         "#figure("
         $$
         nest 2
-         ("align(center)[" <> toTypstText typstTextAttrs ("#table("
+         ("align(center)[" <> toTypstTextElement typstTextAttrs ("#table("
           $$ nest 2
              (  "columns: " <> columns <> ","
              $$ "align: " <> alignarray <> ","
@@ -355,7 +360,7 @@ inlineToTypst inline =
         [] -> (<> lab) <$> inlinesToTypst inlines
         _ -> do
           contents <- inlinesToTypst inlines
-          return $ toTypstText typstTextAttrs contents <> lab
+          return $ toTypstTextElement typstTextAttrs contents <> lab
     Quoted quoteType inlines -> do
       let q = case quoteType of
                    DoubleQuote -> literal "\""
