@@ -118,6 +118,7 @@ ifNotEmpty list f =
     [] -> ""
     _ -> f list
 
+ifNotEmptyWrap :: [a] -> ([a] -> t -> t) -> t -> t
 ifNotEmptyWrap list f contents =
   case list of
     [] -> contents
@@ -223,19 +224,29 @@ blockToTypst block =
 
       let fromCell (Cell (_,_,kvs) alignment rowspan colspan bs) = do
             let (typstAttrs, typstTextAttrs) = pickTypstAttrs kvs
-            let cellattrs =
+            let valign =
+                  (case lookup "typst:align" typstAttrs of
+                    Just va -> [va]
+                    _ -> [])
+            let typstAttrs2 = filter ((/="typst:align") . fst) typstAttrs
+            let halign =
                   (case alignment of
-                     AlignDefault -> []
-                     AlignLeft -> [ "align: left" ]
-                     AlignRight -> [ "align: right" ]
-                     AlignCenter -> [ "align: center" ]) ++
+                            AlignDefault -> []
+                            AlignLeft -> [ "left" ]
+                            AlignRight -> [ "right" ]
+                            AlignCenter -> [ "center" ])
+            let cellaligns = valign ++ halign
+            let cellattrs =
+                  (case cellaligns of
+                    [] -> []
+                    _ -> [ "align: " <> T.intercalate " + " cellaligns ]) ++
                   (case rowspan of
                      RowSpan 1 -> []
                      RowSpan n -> [ "rowspan: " <> tshow n ]) ++
                   (case colspan of
                      ColSpan 1 -> []
                      ColSpan n -> [ "colspan: " <> tshow n ]) ++
-                  formatTypstProps typstAttrs
+                  formatTypstProps typstAttrs2
             cellContents <- blocksToTypst bs
             pure $ if null cellattrs
                       then brackets cellContents
