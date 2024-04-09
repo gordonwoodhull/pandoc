@@ -125,10 +125,13 @@ ifNotEmptyWrap f list contents =
     [] -> contents
     _ -> f list contents
 
+typst_props_list :: [(Text, Text)] -> Doc Text
 typst_props_list = ifNotEmpty toTypstPropsList
 
+typst_text_element :: [(Text, Text)] -> Doc Text -> Doc Text
 typst_text_element = ifNotEmptyWrap toTypstTextElement
 
+typst_set_text :: [(Text, Text)] -> Doc Text
 typst_set_text = ifNotEmpty toTypstSetText
 
 blocksToTypst :: PandocMonad m => [Block] -> TW m (Doc Text)
