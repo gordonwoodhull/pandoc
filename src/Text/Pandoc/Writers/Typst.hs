@@ -113,14 +113,14 @@ toTypstSetText typstTextAttrs =
   "#set text" <> parens (toTypstProps typstTextAttrs) <> "; " -- newline?
 
 -- there is probably a more idiomatic way to do this
-ifNotEmpty ::  [a2] -> ([a2] -> Doc Text) -> Doc Text
-ifNotEmpty list f =
+ifNotEmpty ::  ([a2] -> Doc Text) -> [a2] -> Doc Text
+ifNotEmpty f list =
   case list of
     [] -> ""
     _ -> f list
 
-ifNotEmptyWrap :: [a] -> ([a] -> t -> t) -> t -> t
-ifNotEmptyWrap list f contents =
+ifNotEmptyWrap :: ([a] -> t -> t) -> [a] -> t -> t
+ifNotEmptyWrap f list contents =
   case list of
     [] -> contents
     _ -> f list contents
@@ -249,7 +249,7 @@ blockToTypst block =
                      ColSpan n -> [ "colspan: " <> tshow n ]) ++
                   formatTypstProps typstAttrs2
             cellContents <- blocksToTypst bs
-            let contents2 = brackets (ifNotEmpty typstTextAttrs toTypstSetText <> cellContents)
+            let contents2 = brackets (ifNotEmpty toTypstSetText typstTextAttrs <> cellContents)
             pure $ if null cellattrs
                       then contents2
                       else "table.cell" <>
@@ -282,11 +282,11 @@ blockToTypst block =
         "#figure("
         $$
         nest 2
-         ("align(center)[" <> ifNotEmptyWrap typstTextAttrs toTypstTextElement ("#table("
+         ("align(center)[" <> ifNotEmptyWrap toTypstTextElement typstTextAttrs ("#table("
           $$ nest 2
              (  "columns: " <> columns <> ","
              $$ "align: " <> alignarray <> ","
-             $$ ifNotEmpty typstAttrs toTypstPropsList
+             $$ ifNotEmpty toTypstPropsList typstAttrs
              $$ header
              $$ body
              $$ footer
@@ -318,8 +318,8 @@ blockToTypst block =
       let lab = toLabel FreestandingLabel ident
       let (typstAttrs,typstTextAttrs) = pickTypstAttrs kvs
       contents <- blocksToTypst blocks
-      let contents2 = ifNotEmpty typstTextAttrs toTypstSetText <> contents
-      return $ "#block" <> (ifNotEmpty typstAttrs (parens . toTypstProps)) <> "[" $$ contents2 $$ ("]" <+> lab)
+      let contents2 = ifNotEmpty toTypstSetText typstTextAttrs  <> contents
+      return $ "#block" <> ifNotEmpty (parens . toTypstProps) typstAttrs <> "[" $$ contents2 $$ ("]" <+> lab)
 
 defListItemToTypst :: PandocMonad m => ([Inline], [[Block]]) -> TW m (Doc Text)
 defListItemToTypst (term, defns) = do
@@ -385,7 +385,7 @@ inlineToTypst inline =
         [] -> (<> lab) <$> inlinesToTypst inlines
         _ -> do
           contents <- inlinesToTypst inlines
-          return $ ifNotEmptyWrap typstTextAttrs toTypstTextElement contents <> lab
+          return $ ifNotEmptyWrap toTypstTextElement typstTextAttrs contents <> lab
     Quoted quoteType inlines -> do
       let q = case quoteType of
                    DoubleQuote -> literal "\""
