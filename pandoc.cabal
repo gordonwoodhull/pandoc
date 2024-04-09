@@ -835,6 +835,7 @@ test-suite test-pandoc
                   Tests.Writers.OOXML
                   Tests.Writers.Ms
                   Tests.Writers.AnnotatedTable
+                  Tests.Writers.Typst
 
 benchmark benchmark-pandoc
   import:          common-executable
