@@ -97,12 +97,12 @@ formatTypstProps =
   map (\(k,v) -> last (T.splitOn (T.pack ":") k) <> ": " <> v)
 
 toTypstProps :: [(Text, Text)] -> Doc Text
-toTypstProps typstAttrs = 
+toTypstProps typstAttrs =
   literal (T.intercalate ", " $ formatTypstProps typstAttrs)
 
 toTypstPropsList :: [(Text, Text)] -> Doc Text
-toTypstPropsList typstAttrs = 
-  toTypstProps typstAttrs <> ", "
+toTypstPropsList typstAttrs =
+  toTypstProps typstAttrs <> ","
 
 toTypstTextElement :: [(Text, Text)] -> Doc Text -> Doc Text
 toTypstTextElement typstTextAttrs content =
@@ -113,6 +113,7 @@ toTypstSetText typstTextAttrs =
   "#set text" <> parens (toTypstProps typstTextAttrs) <> "; " -- newline?
 
 -- there is probably a more idiomatic way to do this
+ifNotEmpty ::  [a2] -> ([a2] -> Doc Text) -> Doc Text
 ifNotEmpty list f =
   case list of
     [] -> ""
@@ -248,12 +249,13 @@ blockToTypst block =
                      ColSpan n -> [ "colspan: " <> tshow n ]) ++
                   formatTypstProps typstAttrs2
             cellContents <- blocksToTypst bs
+            let contents2 = brackets (ifNotEmpty typstTextAttrs toTypstSetText <> cellContents)
             pure $ if null cellattrs
-                      then brackets cellContents
+                      then contents2
                       else "table.cell" <>
                             parens
                              (literal (T.intercalate ", " cellattrs)) <>
-                            brackets (ifNotEmpty typstTextAttrs toTypstSetText <> cellContents)
+                            contents2
       let fromRow (Row _ cs) =
             (<> ",") . commaSep <$> mapM fromCell cs
       let fromHead (TableHead _attr headRows) =
@@ -316,7 +318,7 @@ blockToTypst block =
       let lab = toLabel FreestandingLabel ident
       let (typstAttrs,_) = pickTypstAttrs kvs
       contents <- blocksToTypst blocks
-      return $ "#block" <> parens (ifNotEmpty typstAttrs toTypstProps) <> "[" $$ contents $$ ("]" <+> lab)
+      return $ "#block" <> (ifNotEmpty typstAttrs (parens . toTypstProps)) <> "[" $$ contents $$ ("]" <+> lab)
 
 defListItemToTypst :: PandocMonad m => ([Inline], [[Block]]) -> TW m (Doc Text)
 defListItemToTypst (term, defns) = do
