@@ -232,10 +232,10 @@ blockToTypst block =
             let typstAttrs2 = filter ((/="typst:align") . fst) typstAttrs
             let halign =
                   (case alignment of
-                            AlignDefault -> []
-                            AlignLeft -> [ "left" ]
-                            AlignRight -> [ "right" ]
-                            AlignCenter -> [ "center" ])
+                    AlignDefault -> []
+                    AlignLeft -> [ "left" ]
+                    AlignRight -> [ "right" ]
+                    AlignCenter -> [ "center" ])
             let cellaligns = valign ++ halign
             let cellattrs =
                   (case cellaligns of
@@ -316,9 +316,10 @@ blockToTypst block =
       blocksToTypst (Header lev (ident,cls,kvs) ils:rest)
     Div (ident,_,kvs) blocks -> do
       let lab = toLabel FreestandingLabel ident
-      let (typstAttrs,_) = pickTypstAttrs kvs
+      let (typstAttrs,typstTextAttrs) = pickTypstAttrs kvs
       contents <- blocksToTypst blocks
-      return $ "#block" <> (ifNotEmpty typstAttrs (parens . toTypstProps)) <> "[" $$ contents $$ ("]" <+> lab)
+      let contents2 = ifNotEmpty typstTextAttrs toTypstSetText <> contents
+      return $ "#block" <> (ifNotEmpty typstAttrs (parens . toTypstProps)) <> "[" $$ contents2 $$ ("]" <+> lab)
 
 defListItemToTypst :: PandocMonad m => ([Inline], [[Block]]) -> TW m (Doc Text)
 defListItemToTypst (term, defns) = do

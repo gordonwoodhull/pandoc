@@ -43,8 +43,22 @@ tests :: [TestTree]
 tests =
   [ testGroup "typst properties"
     [ "span text" =:
-     spanWith ("", [], [("typst:text:fill", "orange")]) "foo"
+      spanWith ("", [], [("typst:text:fill", "orange")]) "foo"
     =?> "#text(fill: orange)[foo]"
+    , "block" =:
+      (divWith ("", [], [("typst:inset", "10pt")]) $ plain "Foo")
+    =?> unlines [
+        "#block(inset: 10pt)["
+      , "Foo"
+      , "]"
+      ]
+    , "block text" =:
+      (divWith ("", [], [("typst:text:fill", "purple")]) $ plain "Foo")
+    =?> unlines [
+        "#block["
+      , "#set text(fill: purple); Foo"
+      , "]"
+      ]
     , "table" =:
       let headers = []
           rows = []
@@ -54,7 +68,7 @@ tests =
                     (TableHead nullAttr $ toHeaderRow headers)
                     [TableBody nullAttr 0 [] $ map toRow rows]
                     (TableFoot nullAttr [])
-    =?> unlines [ 
+    =?> unlines [
         "#figure("
       , "  align(center)[#table("
       , "    columns: 0,"
@@ -73,7 +87,7 @@ tests =
                     (TableHead nullAttr $ toHeaderRow headers)
                     [TableBody nullAttr 0 [] $ map toRow rows]
                     (TableFoot nullAttr [])
-    =?> unlines [ 
+    =?> unlines [
         "#figure("
       , "  align(center)[#text(fill: orange)[#table("
       , "    columns: 0,"
@@ -94,7 +108,7 @@ tests =
                     (TableHead nullAttr $ toHeaderRow headers)
                     [TableBody nullAttr 0 [] rows]
                     (TableFoot nullAttr [])
-    =?> unlines [ 
+    =?> unlines [
         "#figure("
       , "  align(center)[#table("
       , "    columns: 2,"
@@ -108,7 +122,7 @@ tests =
       , "  , kind: table"
       , "  )"
       ]
-    , "table cell text" =:
+    , "table cell text no attr" =:
       let headers = []
           rows = [Row nullAttr [
               cellWith ("", [], [("typst:text:fill", "orange")]) AlignDefault (RowSpan 1) (ColSpan 1) $ para "Foo"
@@ -120,12 +134,38 @@ tests =
                     (TableHead nullAttr $ toHeaderRow headers)
                     [TableBody nullAttr 0 [] rows]
                     (TableFoot nullAttr [])
-    =?> unlines [ 
+    =?> unlines [
         "#figure("
       , "  align(center)[#table("
       , "    columns: 2,"
       , "    align: (auto,auto,),"
       , "    [#set text(fill: orange); Foo"
+      , ""
+      , "    ], [Bar"
+      , ""
+      , "    ],"
+      , "  )]"
+      , "  , kind: table"
+      , "  )"
+      ]
+    , "table cell text w attr" =:
+      let headers = []
+          rows = [Row nullAttr [
+              cellWith ("", [], [("typst:text:fill", "orange")]) AlignCenter (RowSpan 1) (ColSpan 1) $ para "Foo"
+            , simpleCell $ para "Bar"
+            ]]
+      in table
+                    emptyCaption
+                    [(AlignDefault,ColWidthDefault),(AlignDefault,ColWidthDefault)]
+                    (TableHead nullAttr $ toHeaderRow headers)
+                    [TableBody nullAttr 0 [] rows]
+                    (TableFoot nullAttr [])
+    =?> unlines [
+        "#figure("
+      , "  align(center)[#table("
+      , "    columns: 2,"
+      , "    align: (auto,auto,),"
+      , "    table.cell(align: center)[#set text(fill: orange); Foo"
       , ""
       , "    ], [Bar"
       , ""
