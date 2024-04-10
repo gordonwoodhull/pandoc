@@ -100,16 +100,16 @@ toTypstProps :: [(Text, Text)] -> Doc Text
 toTypstProps typstAttrs =
   literal (T.intercalate ", " $ formatTypstProps typstAttrs)
 
-toTypstPropsList :: [(Text, Text)] -> Doc Text
-toTypstPropsList typstAttrs =
+toTypstPropsListUnchecked :: [(Text, Text)] -> Doc Text
+toTypstPropsListUnchecked typstAttrs =
   toTypstProps typstAttrs <> ","
 
-toTypstTextElement :: [(Text, Text)] -> Doc Text -> Doc Text
-toTypstTextElement typstTextAttrs content =
+toTypstTextElementUnchecked :: [(Text, Text)] -> Doc Text -> Doc Text
+toTypstTextElementUnchecked typstTextAttrs content =
   "#text" <> parens (toTypstProps typstTextAttrs) <> brackets content
 
-toTypstSetText :: [(Text, Text)] -> Doc Text
-toTypstSetText typstTextAttrs =
+toTypstSetTextUnchecked :: [(Text, Text)] -> Doc Text
+toTypstSetTextUnchecked typstTextAttrs =
   "#set text" <> parens (toTypstProps typstTextAttrs) <> "; " -- newline?
 
 -- there is probably a more idiomatic way to do this
@@ -125,14 +125,14 @@ ifNotEmptyWrap f list contents =
     [] -> contents
     _ -> f list contents
 
-typst_props_list :: [(Text, Text)] -> Doc Text
-typst_props_list = ifNotEmpty toTypstPropsList
+toTypstPropsList :: [(Text, Text)] -> Doc Text
+toTypstPropsList = ifNotEmpty toTypstPropsListUnchecked
 
-typst_text_element :: [(Text, Text)] -> Doc Text -> Doc Text
-typst_text_element = ifNotEmptyWrap toTypstTextElement
+toTypstTextElement :: [(Text, Text)] -> Doc Text -> Doc Text
+toTypstTextElement = ifNotEmptyWrap toTypstTextElementUnchecked
 
-typst_set_text :: [(Text, Text)] -> Doc Text
-typst_set_text = ifNotEmpty toTypstSetText
+toTypstSetText :: [(Text, Text)] -> Doc Text
+toTypstSetText = ifNotEmpty toTypstSetTextUnchecked
 
 blocksToTypst :: PandocMonad m => [Block] -> TW m (Doc Text)
 blocksToTypst blocks = vcat <$> mapM blockToTypst blocks
@@ -258,7 +258,7 @@ blockToTypst block =
                      ColSpan n -> [ "colspan: " <> tshow n ]) ++
                   formatTypstProps typstAttrs2
             cellContents <- blocksToTypst bs
-            let contents2 = brackets (typst_set_text typstTextAttrs <> cellContents)
+            let contents2 = brackets (toTypstSetText typstTextAttrs <> cellContents)
             pure $ if null cellattrs
                       then contents2
                       else "table.cell" <>
@@ -291,11 +291,11 @@ blockToTypst block =
         "#figure("
         $$
         nest 2
-         ("align(center)[" <> typst_text_element typstTextAttrs ("#table("
+         ("align(center)[" <> toTypstTextElement typstTextAttrs ("#table("
           $$ nest 2
              (  "columns: " <> columns <> ","
              $$ "align: " <> alignarray <> ","
-             $$ typst_props_list typstAttrs
+             $$ toTypstPropsList typstAttrs
              $$ header
              $$ body
              $$ footer
@@ -327,7 +327,7 @@ blockToTypst block =
       let lab = toLabel FreestandingLabel ident
       let (typstAttrs,typstTextAttrs) = pickTypstAttrs kvs
       contents <- blocksToTypst blocks
-      let contents2 = typst_set_text typstTextAttrs  <> contents
+      let contents2 = toTypstSetText typstTextAttrs  <> contents
       return $ "#block" <> ifNotEmpty (parens . toTypstProps) typstAttrs <> "[" $$ contents2 $$ ("]" <+> lab)
 
 defListItemToTypst :: PandocMonad m => ([Inline], [[Block]]) -> TW m (Doc Text)
@@ -394,7 +394,7 @@ inlineToTypst inline =
         [] -> (<> lab) <$> inlinesToTypst inlines
         _ -> do
           contents <- inlinesToTypst inlines
-          return $ typst_text_element typstTextAttrs contents <> lab
+          return $ toTypstTextElement typstTextAttrs contents <> lab
     Quoted quoteType inlines -> do
       let q = case quoteType of
                    DoubleQuote -> literal "\""
