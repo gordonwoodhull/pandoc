@@ -94,7 +94,7 @@ pickTypstAttrs =
 
 formatTypstProps :: [(Text, Text)] -> [Text]
 formatTypstProps =
-  map (\(k,v) -> last (T.splitOn (T.pack ":") k) <> ": " <> v)
+  map (\(k,v) -> last (T.splitOn ":" k) <> ": " <> v)
 
 toTypstProps :: [(Text, Text)] -> Doc Text
 toTypstProps typstAttrs =
