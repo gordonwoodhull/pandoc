@@ -21,6 +21,8 @@ import Text.Pandoc.Class ( PandocMonad)
 import Text.Pandoc.Options ( WriterOptions(..), WrapOption(..), isEnabled )
 import Data.Text (Text)
 import Data.List (intercalate, intersperse, partition)
+import Data.Maybe (catMaybes)
+import Data.Either (partitionEithers)
 import Network.URI (unEscapeString)
 import qualified Data.Text as T
 import Control.Monad.State ( StateT, evalStateT, gets, modify )
@@ -90,11 +92,19 @@ pandocToTypst options (Pandoc meta blocks) = do
 
 pickTypstAttrs :: [(Text, Text)] -> ([(Text, Text)],[(Text, Text)])
 pickTypstAttrs =
-  partition (not . T.isPrefixOf "typst:text:" . fst) . filter (T.isPrefixOf "typst:" . fst)
+  partitionEithers . catMaybes . map (\(k,v) ->
+    let spl = T.splitOn ":" k in
+    if length(spl) < 2 || length(spl) > 3
+      || head spl /= "typst"
+      || (length(spl) == 3 && spl !! 1 /= "text")
+      then Nothing
+    else if spl !! 1 == "text"
+       then Just $ Right (spl !! 2, v)
+       else Just $ Left (spl !! 1, v))
 
 formatTypstProps :: [(Text, Text)] -> [Text]
 formatTypstProps =
-  map (\(k,v) -> last (T.splitOn ":" k) <> ": " <> v)
+  map (\(k,v) -> k <> ": " <> v)
 
 toTypstProps :: [(Text, Text)] -> Doc Text
 toTypstProps typstAttrs =
