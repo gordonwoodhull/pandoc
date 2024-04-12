@@ -114,7 +114,7 @@ toTypstPropsListParens typstAttrs = parens $ toTypstPropsListSep typstAttrs
 
 toTypstTextElement :: [(Text, Text)] -> Doc Text -> Doc Text
 toTypstTextElement [] content = content
-toTypstTextElement typstTextAttrs content = "#text" <> parens (toTypstPropsListSep typstTextAttrs) <> brackets content
+toTypstTextElement typstTextAttrs content = "#text" <> toTypstPropsListParens typstTextAttrs <> brackets content
 
 toTypstSetText :: [(Text, Text)] -> Doc Text
 toTypstSetText [] = ""
