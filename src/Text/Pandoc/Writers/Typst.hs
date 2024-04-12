@@ -106,43 +106,25 @@ formatTypstProps :: [(Text, Text)] -> [Text]
 formatTypstProps =
   map (\(k,v) -> k <> ": " <> v)
 
-toTypstProps :: [(Text, Text)] -> Doc Text
-toTypstProps typstAttrs =
-  literal (T.intercalate ", " $ formatTypstProps typstAttrs)
+toTypstPropsListSep :: [(Text, Text)] -> Doc Text
+toTypstPropsListSep typstAttrs =
+   literal (T.intercalate ", " $ formatTypstProps typstAttrs)
 
-toTypstPropsListUnchecked :: [(Text, Text)] -> Doc Text
-toTypstPropsListUnchecked typstAttrs =
-  toTypstProps typstAttrs <> ","
+toTypstPropsListTerm :: [(Text, Text)] -> Doc Text
+toTypstPropsListTerm [] = ""
+toTypstPropsListTerm typstAttrs = toTypstPropsListSep typstAttrs <> ","
 
-toTypstTextElementUnchecked :: [(Text, Text)] -> Doc Text -> Doc Text
-toTypstTextElementUnchecked typstTextAttrs content =
-  "#text" <> parens (toTypstProps typstTextAttrs) <> brackets content
-
-toTypstSetTextUnchecked :: [(Text, Text)] -> Doc Text
-toTypstSetTextUnchecked typstTextAttrs =
-  "#set text" <> parens (toTypstProps typstTextAttrs) <> "; " -- newline?
-
--- there is probably a more idiomatic way to do this
-ifNotEmpty ::  ([a2] -> Doc Text) -> [a2] -> Doc Text
-ifNotEmpty f list =
-  case list of
-    [] -> ""
-    _ -> f list
-
-ifNotEmptyWrap :: ([a] -> t -> t) -> [a] -> t -> t
-ifNotEmptyWrap f list contents =
-  case list of
-    [] -> contents
-    _ -> f list contents
-
-toTypstPropsList :: [(Text, Text)] -> Doc Text
-toTypstPropsList = ifNotEmpty toTypstPropsListUnchecked
+toTypstPropsListParens :: [(Text, Text)] -> Doc Text
+toTypstPropsListParens [] = ""
+toTypstPropsListParens typstAttrs = parens $ toTypstPropsListSep typstAttrs
 
 toTypstTextElement :: [(Text, Text)] -> Doc Text -> Doc Text
-toTypstTextElement = ifNotEmptyWrap toTypstTextElementUnchecked
+toTypstTextElement [] content = content
+toTypstTextElement typstTextAttrs content = "#text" <> parens (toTypstPropsListSep typstTextAttrs) <> brackets content
 
 toTypstSetText :: [(Text, Text)] -> Doc Text
-toTypstSetText = ifNotEmpty toTypstSetTextUnchecked
+toTypstSetText [] = ""
+toTypstSetText typstTextAttrs = "#set text" <> parens (toTypstPropsListSep typstTextAttrs) <> "; " -- newline?
 
 blocksToTypst :: PandocMonad m => [Block] -> TW m (Doc Text)
 blocksToTypst blocks = vcat <$> mapM blockToTypst blocks
@@ -305,7 +287,7 @@ blockToTypst block =
           $$ nest 2
              (  "columns: " <> columns <> ","
              $$ "align: " <> alignarray <> ","
-             $$ toTypstPropsList typstAttrs
+             $$ toTypstPropsListTerm typstAttrs
              $$ header
              $$ body
              $$ footer
@@ -338,7 +320,7 @@ blockToTypst block =
       let (typstAttrs,typstTextAttrs) = pickTypstAttrs kvs
       contents <- blocksToTypst blocks
       let contents2 = toTypstSetText typstTextAttrs  <> contents
-      return $ "#block" <> ifNotEmpty (parens . toTypstProps) typstAttrs <> "[" $$ contents2 $$ ("]" <+> lab)
+      return $ "#block" <> toTypstPropsListParens typstAttrs <> "[" $$ contents2 $$ ("]" <+> lab)
 
 defListItemToTypst :: PandocMonad m => ([Inline], [[Block]]) -> TW m (Doc Text)
 defListItemToTypst (term, defns) = do
