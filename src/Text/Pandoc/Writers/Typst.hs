@@ -20,7 +20,7 @@ import Text.Pandoc.Definition
 import Text.Pandoc.Class ( PandocMonad)
 import Text.Pandoc.Options ( WriterOptions(..), WrapOption(..), isEnabled )
 import Data.Text (Text)
-import Data.List (intercalate, intersperse, partition)
+import Data.List (intercalate, intersperse)
 import Data.Maybe (catMaybes)
 import Data.Either (partitionEithers)
 import Network.URI (unEscapeString)
