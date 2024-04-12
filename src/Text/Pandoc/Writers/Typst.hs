@@ -98,9 +98,9 @@ pickTypstAttrs =
       || head spl /= "typst"
       || (length(spl) == 3 && spl !! 1 /= "text")
       then Nothing
-    else if spl !! 1 == "text"
-       then Just $ Right (spl !! 2, v)
-       else Just $ Left (spl !! 1, v))
+    else if spl !! 1 /= "text"
+       then Just $ Left (spl !! 1, v))
+       else Just $ Right (spl !! 2, v)
 
 formatTypstProps :: [(Text, Text)] -> [Text]
 formatTypstProps =
