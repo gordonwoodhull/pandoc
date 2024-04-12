@@ -319,8 +319,9 @@ blockToTypst block =
       let lab = toLabel FreestandingLabel ident
       let (typstAttrs,typstTextAttrs) = pickTypstAttrs kvs
       contents <- blocksToTypst blocks
-      let contents2 = toTypstSetText typstTextAttrs  <> contents
-      return $ "#block" <> toTypstPropsListParens typstAttrs <> "[" $$ contents2 $$ ("]" <+> lab)
+      return $ "#block" <> toTypstPropsListParens typstAttrs <> "["
+        $$ toTypstSetText typstTextAttrs <> contents
+        $$ ("]" <+> lab)
 
 defListItemToTypst :: PandocMonad m => ([Inline], [[Block]]) -> TW m (Doc Text)
 defListItemToTypst (term, defns) = do
