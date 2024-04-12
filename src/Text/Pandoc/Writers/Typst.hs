@@ -98,13 +98,11 @@ pickTypstAttrs = foldr go ([],[])
         "typst":x:[] -> first ((x,v):)
         _ -> id
 
-formatTypstProps :: [(Text, Text)] -> [Text]
-formatTypstProps =
-  map (\(k,v) -> k <> ": " <> v)
+formatTypstProp :: (Text, Text) -> Text
+formatTypstProp (k,v) = k <> ": " <> v
 
 toTypstPropsListSep :: [(Text, Text)] -> Doc Text
-toTypstPropsListSep typstAttrs =
-   literal (T.intercalate ", " $ formatTypstProps typstAttrs)
+toTypstPropsListSep = hsep . intersperse "," . (map $ literal . formatTypstProp)
 
 toTypstPropsListTerm :: [(Text, Text)] -> Doc Text
 toTypstPropsListTerm [] = ""
@@ -244,7 +242,7 @@ blockToTypst block =
                   (case colspan of
                      ColSpan 1 -> []
                      ColSpan n -> [ "colspan: " <> tshow n ]) ++
-                  formatTypstProps typstAttrs2
+                  map formatTypstProp typstAttrs2
             cellContents <- blocksToTypst bs
             let contents2 = brackets (toTypstSetText typstTextAttrs <> cellContents)
             pure $ if null cellattrs
