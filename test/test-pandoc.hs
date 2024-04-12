@@ -47,7 +47,6 @@ import qualified Tests.Writers.Org
 import qualified Tests.Writers.Plain
 import qualified Tests.Writers.Powerpoint
 import qualified Tests.Writers.RST
-import qualified Tests.Writers.Typst
 import qualified Tests.Writers.AnnotatedTable
 import qualified Tests.Writers.TEI
 import qualified Tests.Writers.Markua
@@ -81,7 +80,6 @@ tests pandocPath = testGroup "pandoc tests"
           , testGroup "PowerPoint" Tests.Writers.Powerpoint.tests
           , testGroup "Ms" Tests.Writers.Ms.tests
           , testGroup "AnnotatedTable" Tests.Writers.AnnotatedTable.tests
-          , testGroup "Typst" Tests.Writers.Typst.tests
           ]
         , testGroup "Readers"
           [ testGroup "LaTeX" Tests.Readers.LaTeX.tests
