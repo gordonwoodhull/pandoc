@@ -6,7 +6,7 @@ author: Gordon Woodhull
 Pandoc Typst property output
 ============================
 
-For supported elements, the Pandoc Typst Writer outputs Typst properties for attributes with keys of the form `typst:prop` or `typst:text:prop`.
+In addition to the output of structural properties built into Pandoc's Typst Writer, the Writer can also output non-structural Typst properties. This is enabled by setting attributes with keys of the form `typst:prop` or `typst:text:prop` on supported elements.
 
 
 Typst properties
@@ -29,13 +29,11 @@ The parameter values are [Typst code](https://typst.app/docs/reference/syntax/#m
 Pandoc Typst property output
 ----------------------------
 
-For the set of supported Pandoc elements, the Pandoc Typst Writer will output attributes to corresponding Typst elements or set-text rules. 
+For the set of supported Pandoc elements, the Pandoc Typst Writer will output attributes as parameters to corresponding Typst elements or set-text rules. 
 
-The attribute keys must be of the form `typst:prop` or `typst:text:prop` and the values must be raw Typst code.
+The Typst Writer looks for attributes with keys of the form `typst:prop` or `typst:text:prop` and assumes the values are raw Typst code.
 
 `prop` is the name of the property to set.
-
-The Typst Writer does not check the validity of `prop` or the value.
 
 For example, `pandoc -f html -t typst` with HTML input
 
@@ -65,7 +63,7 @@ it produces Typst output
 ]
 ```
 
-
+The Typst Writer does not check the validity of `prop` or the value. Since Typst is a statically typed language, improper property names or values usually result in compilation failure.
 
 Supported elements
 ------------------
@@ -82,31 +80,31 @@ The following Pandoc AST elements are currently supported. More may be supported
 
   `typst:prop`
 
-  : The `prop` is output as a parameter to the Typst [block element](https://typst.app/docs/reference/layout/block/)
+  : The `prop` is output as a parameter to the Typst [block element](https://typst.app/docs/reference/layout/block/).
 
   `typst:text:prop`
 
-  : The `prop` is output as a property in a set-text rule at the start of the block content.
+  : The `prop` is output as a parameter to a set-text rule at the start of the block content.
 
 - [Table](https://pandoc.org/lua-filters.html#type-table)
 
   `typst:prop`
 
-  : The `prop` is output as a parameter to the Typst [table element](https://typst.app/docs/reference/model/table/)
+  : The `prop` is output as a parameter to the Typst [table element](https://typst.app/docs/reference/model/table/).
 
   `typst:text:prop`
 
-  : The table is wrapped in a Typst [text element](https://typst.app/docs/reference/text/text/) with `prop` as one of its properties.
+  : The table is wrapped in a Typst [text element](https://typst.app/docs/reference/text/text/) with `prop` as one of its parameters.
 
 - Table [Cell](https://pandoc.org/lua-filters.html#type-cell)
 
   `typst:prop`
 
-  : The `prop` is output as a property on the Typst table [cell element](https://typst.app/docs/reference/model/table/#definitions-cell)
+  : The `prop` is output as a parameter to the Typst table [cell element](https://typst.app/docs/reference/model/table/#definitions-cell).
 
   `typst:text:prop`
 
-  : The `prop` is output as a property in a set-text rule at the start of the cell content.
+  : The `prop` is output as a parameter to a set-text rule at the start of the cell content.
 
 
 Lua filter example
@@ -116,6 +114,7 @@ Here is a minimal example of a Lua filter which translates the CSS [color proper
 
 ```lua
 function styleToTable(style)
+  if not style then return nil end
   local ret = {}
   for clause in style:gmatch('([^;]+)') do
     k,v = clause:match("([%w-]+)%s*:%s*(.*)$")
@@ -143,7 +142,7 @@ Given the HTML input
 the command
 
 ```sh
-quarto pandoc -f html -t typst --lua-filter ./typst-property-example.lua
+pandoc -f html -t typst --lua-filter ./typst-property-example.lua
 ```
 
 will produce the Typst output
